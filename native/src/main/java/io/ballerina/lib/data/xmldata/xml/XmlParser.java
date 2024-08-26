@@ -185,17 +185,7 @@ public class XmlParser {
     public Object parse(XmlParserData xmlParserData) {
         try {
             parseRootElement(xmlStreamReader, xmlParserData);
-
-            boolean readNext = false;
-            int next;
-            while (xmlStreamReader.hasNext()) {
-                if (readNext) {
-                    next = xmlStreamReader.getEventType();
-                } else {
-                    next = xmlStreamReader.next();
-                }
-                readNext = parseXmlElements(next, xmlParserData);
-            }
+            parseXmlElements(xmlParserData);
         } catch (NumberFormatException e) {
             throw DiagnosticLog.createXmlError(PARSE_ERROR_PREFIX + e);
         } catch (BError e) {
@@ -205,6 +195,23 @@ public class XmlParser {
         }
 
         return xmlParserData.currentNode;
+    }
+
+    public void parseXmlElements(XmlParserData xmlParserData) throws XMLStreamException {
+        boolean readNext = false;
+        int next;
+        while (xmlStreamReader.hasNext()) {
+            if (readNext) {
+                next = xmlStreamReader.getEventType();
+            } else {
+                next = xmlStreamReader.next();
+            }
+            try {
+                readNext = parseXmlElements(next, xmlParserData);
+            } catch (XMLStreamException e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     private boolean parseXmlElements(int next, XmlParserData xmlParserData) throws XMLStreamException {
@@ -323,6 +330,28 @@ public class XmlParser {
         BString bFieldName = StringUtils.fromString(fieldName);
         Type fieldType = TypeUtils.getReferredType(currentField.getFieldType());
 
+        if (fieldType.getTag() == TypeTags.UNION_TAG) {
+            for (Type memberType: ((UnionType) fieldType).getMemberTypes()) {
+                XmlParserData clonedAnalyzerData = XmlParserData.copy(xmlParserData);
+                memberType = TypeUtils.getReferredType(memberType);
+                try {
+                    readTextWithFieldType(xmlParserData, memberType,
+                            bFieldName, textValue, bText, textFieldName, fieldName);
+                    return;
+                } catch (Exception ex) {
+                    xmlParserData.resetFrom(clonedAnalyzerData);
+                    int a = 1;
+                    // ignore
+                }
+            }
+            throw DiagnosticLog.error(DiagnosticErrorCode.FIELD_CANNOT_CAST_INTO_TYPE, fieldType);
+        } else {
+            readTextWithFieldType(xmlParserData, fieldType, bFieldName, textValue, bText, textFieldName, fieldName);
+        }
+    }
+
+    private void readTextWithFieldType(XmlParserData xmlParserData, Type fieldType, BString bFieldName,
+                                       TextValue textValue, BString bText, String textFieldName, String fieldName) {
         if (textValue.isCommentInTheMiddle && !DataUtils.isStringValueAssignable(fieldType.getTag())) {
             throw DiagnosticLog.error(DiagnosticErrorCode.INVALID_TYPE, fieldType, PredefinedTypes.TYPE_STRING);
         }
@@ -563,9 +592,8 @@ public class XmlParser {
         }
     }
 
-    private void readElement(XMLStreamReader xmlStreamReader, XmlParserData xmlParserData) {
-        QualifiedName elemQName = getElementName(xmlStreamReader, xmlParserData.useSemanticEquality);
-        QualifiedNameMap<Field> fieldMap = xmlParserData.fieldHierarchy.peek();
+    private Field getCurrentFieldForNonRestTypes(XmlParserData xmlParserData,
+                                                 QualifiedName elemQName, QualifiedNameMap<Field> fieldMap) {
         Field currentField = null;
         if (xmlParserData.visitedFieldHierarchy.peek().contains(elemQName)) {
             currentField = xmlParserData.visitedFieldHierarchy.peek().get(elemQName);
@@ -586,15 +614,45 @@ public class XmlParser {
                 throw DiagnosticLog.error(DiagnosticErrorCode.UNDEFINED_FIELD, elemName,
                         xmlParserData.rootRecord);
             }
+            return null;
+        }
+        return currentField;
+    }
+
+    private void readElement(XMLStreamReader xmlStreamReader, XmlParserData xmlParserData) {
+        QualifiedName elemQName = getElementName(xmlStreamReader, xmlParserData.useSemanticEquality);
+        QualifiedNameMap<Field> fieldMap = xmlParserData.fieldHierarchy.peek();
+        Field currentField = getCurrentFieldForNonRestTypes(xmlParserData, elemQName, fieldMap);
+        if (currentField == null) {
             return;
         }
 
+        Type fieldType = TypeUtils.getReferredType(currentField.getFieldType());
+        String fieldName = currentField.getFieldName();
+        if (fieldType.getTag() == TypeTags.UNION_TAG) {
+            for (Type memberType: ((UnionType) fieldType).getMemberTypes()) {
+                XmlParserData clonedAnalyzerData = XmlParserData.copy(xmlParserData);
+                memberType = TypeUtils.getReferredType(memberType);
+                try {
+                    readElementWithCurrentField(xmlParserData, memberType, fieldName, elemQName, currentField);
+                    return;
+                } catch (Exception ex) {
+                    xmlParserData.resetFrom(clonedAnalyzerData);
+                    int a = 1;
+                    // ignore
+                }
+            }
+            throw DiagnosticLog.error(DiagnosticErrorCode.FIELD_CANNOT_CAST_INTO_TYPE, fieldType);
+        }
+        readElementWithCurrentField(xmlParserData, fieldType, fieldName, elemQName, currentField);
+    }
+
+    private void readElementWithCurrentField(XmlParserData xmlParserData, Type fieldType,
+                                             String fieldName, QualifiedName elemQName, Field currentField) {
         xmlParserData.visitedFieldHierarchy.peek().put(elemQName, currentField);
         BMap<BString, Object> currentNode = xmlParserData.currentNode;
-        String fieldName = currentField.getFieldName();
         BString bFieldName = StringUtils.fromString(fieldName);
         Object temp = currentNode.get(bFieldName);
-        Type fieldType = currentField.getFieldType();
         Type referredFieldType = TypeUtils.getReferredType(fieldType);
         if (!xmlParserData.siblings.contains(elemQName)) {
             xmlParserData.siblings.put(elemQName, false);
@@ -638,21 +696,22 @@ public class XmlParser {
             case TypeTags.TYPE_REFERENCED_TYPE_TAG ->
                 initializeNextValueBasedOnExpectedType(fieldName, TypeUtils.getReferredType(fieldType), temp,
                         currentNode, xmlParserData);
-            case TypeTags.UNION_TAG -> {
-                XmlParserData clonedAnalyzerData = XmlParserData.copy(xmlParserData);
-                for (Type memberType: ((UnionType) fieldType).getMemberTypes()) {
-                    memberType = TypeUtils.getReferredType(memberType);
-                    try {
-                        initializeNextValueBasedOnExpectedType(fieldName, memberType, temp, currentNode, xmlParserData);
-                        return;
-                    } catch (Exception ex) {
-                        xmlParserData.resetFrom(clonedAnalyzerData);
-                        currentNode.put(StringUtils.fromString(fieldName), null);
-                        int a = 1;
-                        // ignore
-                    }
-                }
-            }
+//            case TypeTags.UNION_TAG -> {
+//                XmlParserData clonedAnalyzerData = XmlParserData.copy(xmlParserData);
+//                for (Type memberType: ((UnionType) fieldType).getMemberTypes()) {
+//                    memberType = TypeUtils.getReferredType(memberType);
+//                    try {
+//                        initializeNextValueBasedOnExpectedType(fieldName, memberType,
+//                        temp, currentNode, xmlParserData);
+//                        return;
+//                    } catch (Exception ex) {
+//                        xmlParserData.resetFrom(clonedAnalyzerData);
+//                        currentNode.put(StringUtils.fromString(fieldName), null);
+//                        int a = 1;
+//                        // ignore
+//                    }
+//                }
+//            }
         }
     }
 

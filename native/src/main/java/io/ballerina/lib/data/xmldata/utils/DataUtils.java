@@ -34,6 +34,7 @@ import io.ballerina.runtime.api.types.Field;
 import io.ballerina.runtime.api.types.MapType;
 import io.ballerina.runtime.api.types.RecordType;
 import io.ballerina.runtime.api.types.ReferenceType;
+import io.ballerina.runtime.api.types.TupleType;
 import io.ballerina.runtime.api.types.Type;
 import io.ballerina.runtime.api.types.UnionType;
 import io.ballerina.runtime.api.utils.StringUtils;
@@ -986,6 +987,51 @@ public class DataUtils {
             builder.append(buffer, 0, numCharsRead);
         }
         return builder.toString();
+    }
+
+    public static boolean isContainsUnionType(Type expType) {
+        if (expType == null) {
+            return false;
+        }
+        expType = TypeUtils.getReferredType(expType);
+        if (expType.getTag() == TypeTags.UNION_TAG) {
+            for (Type memberType: ((UnionType) expType).getMemberTypes()) {
+                if (!isSimpleType(memberType)) {
+                    return true;
+                }
+            }
+        }
+
+        if (expType.getTag() == TypeTags.ARRAY_TAG) {
+            Type memberType = TypeUtils.getReferredType(((ArrayType) expType).getElementType());
+            return isContainsUnionType(memberType);
+        }
+
+        if (expType.getTag() == TypeTags.MAP_TAG) {
+            Type memberType = TypeUtils.getReferredType(((MapType) expType).getConstrainedType());
+            return isContainsUnionType(memberType);
+        }
+
+        if (expType.getTag() == TypeTags.TUPLE_TAG) {
+            TupleType tupleType = (TupleType) expType;
+            for (Type type: tupleType.getTupleTypes()) {
+                if (isContainsUnionType(type)) {
+                    return true;
+                }
+            }
+            return isContainsUnionType(tupleType.getRestType());
+        }
+
+        if (expType.getTag() == TypeTags.RECORD_TYPE_TAG) {
+            RecordType recordType = (RecordType) expType;
+            for (Field field: recordType.getFields().values()) {
+                if (isContainsUnionType(field.getFieldType())) {
+                    return true;
+                }
+            }
+            return isContainsUnionType(recordType.getRestFieldType());
+        }
+        return false;
     }
 
     /**

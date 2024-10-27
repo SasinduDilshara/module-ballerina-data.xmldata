@@ -48,12 +48,6 @@ public type NamespaceConfig record {|
 # When using `toXml`, this annotation can be used to add the namespace to the XML element.
 public const annotation NamespaceConfig Namespace on type, record field;
 
-# The annotation is used to denote the field that is considered an attribute.
-# When using `parseString`, `parseBytes`, `parseStream`, `parseAsType`, this annotation can be used to 
-# indicate the record field as an attribute.
-# When using `toXml`, this annotation can be used to add the attribute to the XML element.
-public const annotation Attribute on record field;
-
 # Represent the options that can be used to modify the behaviour of projection.
 public type Options record {|
     # prefix added for attribute fields in the record
@@ -76,6 +70,91 @@ public type SourceOptions record {|
 # Represents the error type of the ballerina/data.xmldata module. This error type represents any error that can occur
 # during the execution of xmldata APIs.
 public type Error distinct error;
+
+# Defines the attribute for the XML element.
+public type AttributeConfig record {|
+   # This represents the `form` attribute in the XML schema(XSD) `attribute` definition.
+   "qualified"|"unqulified" form?;
+|};
+
+# The annotation is used to denote the field that is considered an attribute.
+# When using `parseString`, `parseBytes`, `parseStream`, `parseAsType`, this annotation can be used to
+# indicate the record field as an attribute.
+# When using `toXml`, this annotation can be used to add the attribute to the XML element.
+public const annotation AttributeConfig Attribute on record field;
+
+# Represents the occurrence constraints for XML schema particles.
+public type ParticleOccurrence record {|
+  # Specifies the minimum number of occurrences.
+  int:Unsigned32 minOccurs?;
+  # Specifies the maximum number of occurrences.
+  int:Unsigned32 maxOccurs?;
+|};
+
+# Defines the configuration for an XML element in the XML schema (XSD).
+public type ElementConfig record {|
+  *ParticleOccurrence;
+  # Represents the `form` attribute in the XML schema (XSD) `element` definition.
+  "qualified"|"unqulified" form?;
+  # Specifies the id of the substitution group for the element.
+  string substitutionGroupId?;
+  # Indicates whether the element is abstract.
+  boolean 'abstract;
+  # Restricts how the element can be extended or restricted.
+  "extension"|"restriction"|"all"|"substitution" block?;
+  # Controls whether the element can be further extended or restricted.
+  "extension"|"restriction"|"all" 'final?;
+|};
+
+# Annotation to define schema rules for an XML element in Ballerina.
+public const annotation ElementConfig Element on type, record field;
+
+# Represents the identifier for a substitution group in XML schema.
+public type SubstituteGroupId record {|
+  # The unique identifier for the substitution group.
+  string id;
+|};
+
+# Annotation to specify the substitution group identifier for an XML element.
+public const annotation SubstituteGroupId SubstituteGroup on type, record field;
+
+# Represents a sequence defined in XML schema.
+public type SequenceElement record {|
+  // Represents occurrence constraints for the sequence element.
+  *ParticleOccurrence;
+  # The unique identifier for the sequence.
+  string id;
+  # The order of the element in the sequence.
+  int sequenceOrder;
+|};
+
+# Annotation to specify the sequence element configuration for XML schema.
+public const annotation SequenceElement Sequence on type, record field;
+
+# Represents a choice defined in XML schema.
+public type ChoiceElement record {|
+  // Represents occurrence constraints for the choice element.
+  *ParticleOccurrence;
+  # The unique identifier for the choice element.
+  string id;
+|};
+
+# Annotation to specify the choice element configuration for XML schema.
+public const annotation ChoiceElement Choice on type, record field;
+
+# Represents an all defined in XML schema.
+public type AllElement record {|
+  # Represents the minimum number of occurrences for the element.
+  0|1 minOccurs;
+  # Represents the maximum number of occurrences for the element.
+  0|1 maxOccurs;
+|};
+
+# Annotation to specify the all element configuration for XML schema.
+public const annotation AllElement All on type, record field;
+
+# Annotation to specify unique constraints for XML elements in the schema.
+public const annotation Unique on record field;
 
 # Converts XML to record type with projection.
 #

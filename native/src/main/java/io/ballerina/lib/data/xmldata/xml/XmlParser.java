@@ -1161,5 +1161,12 @@ public class XmlParser {
         private String textFieldName;
         private boolean allowDataProjection;
         private boolean useSemanticEquality;
+
+        public final Stack<QualifiedNameMap<Field>> xsdFieldAnnotations = new Stack<>();
+        public final Stack<QualifiedNameMap<Field>> elementOccurrences = new Stack<>();
+        public final Stack<QualifiedNameMap<Field>> sequenceOccurrences = new Stack<>();
+        public final Stack<QualifiedNameMap<Field>> sequencePositions = new Stack<>();
+        public final Stack<QualifiedNameMap<Field>> choicePositions = new Stack<>();
+        public final Stack<QualifiedNameMap<Field>> choiceOccurrences = new Stack<>();
     }
 }

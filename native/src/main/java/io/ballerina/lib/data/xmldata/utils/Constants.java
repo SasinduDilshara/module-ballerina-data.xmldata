@@ -54,6 +54,16 @@ public class Constants {
     public static final String MODULE_NAME = "ballerina/data.xmldata";
     public static final String REGEXP_MODULE_NAME = "lang.regexp";
     public static final String REGEXP_TYPE_NAME = "RegExp";
+    public static final String ELEMENT = "Element";
+    public static final String SUBSTITUTE_GROUP = "SubstituteGroup";
+    public static final String SEQUENCE = "Sequence";
+    public static final String CHOICE = "Choice";
+    public static final String ALL = "All";
+    public static final String UNIQUE = "Unique";
+    public static final BString MAX_OCCURS = StringUtils.fromString("maxOccurs");
+    public static final BString MIN_OCCURS = StringUtils.fromString("minOccurs");
+    public static final BString ID = StringUtils.fromString("id");
+    public static final BString SEQUENCE_ORDER = StringUtils.fromString("sequenceOrder");
 
     public static final BString URI = StringUtils.fromString("uri");
     public static final BString PREFIX = StringUtils.fromString("prefix");

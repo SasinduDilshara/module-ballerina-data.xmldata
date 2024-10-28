@@ -41,7 +41,11 @@ public enum DiagnosticErrorCode {
     UNSUPPORTED_TYPE("XML_ERROR_014", "unsupported.type"),
     STREAM_BROKEN("XML_ERROR_015", "stream.broken"),
     XML_PARSE_ERROR("XML_ERROR_016", "xml.parse.error"),
-    UNDEFINED_FIELD("XML_ERROR_0017", "undefined.field");
+    UNDEFINED_FIELD("XML_ERROR_0017", "undefined.field"),
+    XSD_MAX_OCCURENCES_EXCEEDED("XML_ERROR_018", "xsd.max.occurrences.exceeded"),
+    XSD_INVALID_SEQUENCE_ORDER("XML_ERROR_019", "xsd.invalid.sequence.order"),
+    XSD_MIN_OCCURRENCES_NOT_MET("XML_ERROR_020", "xsd.min.occurrences.not.met"),
+    XSD_INCOMPLETE_SEQUENCE("XML_ERROR_021", "xsd.incomplete.sequence");
 
     String diagnosticId;
     String messageKey;

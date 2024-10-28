@@ -23,6 +23,9 @@ import io.ballerina.lib.data.xmldata.utils.Constants;
 import io.ballerina.lib.data.xmldata.utils.DataUtils;
 import io.ballerina.lib.data.xmldata.utils.DiagnosticErrorCode;
 import io.ballerina.lib.data.xmldata.utils.DiagnosticLog;
+import io.ballerina.lib.data.xmldata.xml.xsd.XsdSequenceInfo;
+import io.ballerina.lib.data.xmldata.xml.xsd.XsdSequenceValue;
+import io.ballerina.lib.data.xmldata.xml.xsd.XsdValue;
 import io.ballerina.runtime.api.PredefinedTypes;
 import io.ballerina.runtime.api.TypeTags;
 import io.ballerina.runtime.api.creators.TypeCreator;
@@ -153,6 +156,8 @@ public class XmlParser {
         xmlParserData.recordTypeStack.clear();
         xmlParserData.restFieldsPoints.clear();
         xmlParserData.arrayIndexes.clear();
+        xmlParserData.sequenceInfo.clear();
+        xmlParserData.xsdFieldAnnotations.clear();
     }
 
     public Object parse(XmlParserData xmlParserData) {
@@ -214,6 +219,8 @@ public class XmlParser {
                     QName endElement = xmlStreamReader.getName();
                     if (endElement.getLocalPart().equals(startElementName)) {
                         validateRequiredFields(xmlParserData);
+                        validateXsdSequenceInfo(xmlParserData.sequenceInfo.peek(),
+                                xmlParserData.xsdFieldAnnotations.peek());
                         popExpectedTypeStacks(xmlParserData);
                         break;
                     }
@@ -251,6 +258,7 @@ public class XmlParser {
         // Keep track of fields and attributes
         xmlParserData.recordTypeStack.push(rootRecord);
         updateExpectedTypeStacks(rootRecord, xmlParserData);
+        initializeXsdValidationDataForRecordTypes(rootRecord, xmlParserData);
         handleAttributes(xmlStreamReader, xmlParserData);
         xmlParserData.arrayIndexes.push(new HashMap<>());
     }
@@ -447,6 +455,7 @@ public class XmlParser {
             return;
         }
         validateRequiredFields(xmlParserData);
+        validateXsdSequenceInfo(xmlParserData.sequenceInfo.peek(), xmlParserData.xsdFieldAnnotations.peek());
     }
 
     @SuppressWarnings("unchecked")
@@ -463,6 +472,7 @@ public class XmlParser {
         }
 
         validateRequiredFields(xmlParserData);
+        validateXsdSequenceInfo(xmlParserData.sequenceInfo.peek(), xmlParserData.xsdFieldAnnotations.peek());
         xmlParserData.currentNode = (BMap<BString, Object>) xmlParserData.nodesStack.pop();
         popExpectedTypeStacks(xmlParserData);
         updateSiblingAndRootRecord(xmlParserData);
@@ -516,6 +526,7 @@ public class XmlParser {
         BString bFieldName = StringUtils.fromString(fieldName);
         Object temp = currentNode.get(bFieldName);
         Type fieldType = currentField.getFieldType();
+        validateXsdConstraintsForElementField(fieldName, xmlParserData);
         Type referredFieldType = TypeUtils.getReferredType(fieldType);
         if (!xmlParserData.siblings.contains(elemQName)) {
             xmlParserData.siblings.put(elemQName, false);
@@ -608,6 +619,8 @@ public class XmlParser {
         xmlParserData.fieldHierarchy.push(new QualifiedNameMap<>(new HashMap<>()));
         xmlParserData.visitedFieldHierarchy.push(new QualifiedNameMap<>(new HashMap<>()));
         xmlParserData.recordTypeStack.push(null);
+        xmlParserData.xsdFieldAnnotations.push(new HashMap<>());
+        xmlParserData.sequenceInfo.push(new HashMap<>());
         BMap<BString, Object> currentNode = xmlParserData.currentNode;
         Object temp = currentNode.get(StringUtils.fromString(fieldName));
         if (temp instanceof BArray) {
@@ -651,6 +664,7 @@ public class XmlParser {
                                                   XmlParserData xmlParserData) {
         BMap<BString, Object> nextValue = ValueCreator.createRecordValue(rootRecord.getPackage(), rootRecord.getName());
         updateExpectedTypeStacks(rootRecord, xmlParserData);
+        initializeXsdValidationDataForRecordTypes(rootRecord, xmlParserData);
         BMap<BString, Object> currentNode = xmlParserData.currentNode;
         Object temp = currentNode.get(StringUtils.fromString(fieldName));
         if (temp instanceof BArray) {
@@ -675,18 +689,26 @@ public class XmlParser {
         xmlParserData.fieldHierarchy.push(new QualifiedNameMap<>(getAllFieldsInRecordType(recordType, xmlParserData)));
         xmlParserData.visitedFieldHierarchy.push(new QualifiedNameMap<>(new HashMap<>()));
         xmlParserData.restTypes.push(recordType.getRestFieldType());
+        xmlParserData.xsdFieldAnnotations.push(new HashMap<>());
+        xmlParserData.sequenceInfo.push(new HashMap<>());
     }
 
     private void popExpectedTypeStacks(XmlParserData xmlParserData) {
         popMappingTypeStacks(xmlParserData);
         xmlParserData.attributeHierarchy.pop();
         xmlParserData.arrayIndexes.pop();
+        popXsdValidationStacks(xmlParserData);
     }
 
     private void popMappingTypeStacks(XmlParserData xmlParserData) {
         xmlParserData.fieldHierarchy.pop();
         xmlParserData.visitedFieldHierarchy.pop();
         xmlParserData.restTypes.pop();
+    }
+
+    private void popXsdValidationStacks(XmlParserData xmlParserData) {
+        xmlParserData.sequenceInfo.pop();
+        xmlParserData.xsdFieldAnnotations.pop();
     }
 
     private void updateSiblingAndRootRecord(XmlParserData xmlParserData) {
@@ -754,6 +776,8 @@ public class XmlParser {
             xmlParserData.visitedFieldHierarchy.push(new QualifiedNameMap<>(new HashMap<>()));
             xmlParserData.restTypes.push(restType);
             xmlParserData.arrayIndexes.push(new HashMap<>());
+            xmlParserData.xsdFieldAnnotations.push(new HashMap<>());
+            xmlParserData.sequenceInfo.push(new HashMap<>());
         }
     }
 
@@ -1127,6 +1151,85 @@ public class XmlParser {
                 qName.getPrefix(), ELEMENT, useSemanticEquality);
     }
 
+    private void initializeXsdValidationDataForRecordTypes(RecordType recordType, XmlParserData parserData) {
+        BMap<BString, Object> annotations = recordType.getAnnotations();
+        for (BString annotationKey : annotations.getKeys()) {
+            String key = annotationKey.getValue();
+            if (key.contains(Constants.FIELD)) {
+                String fieldName = key.split(Constants.FIELD_REGEX)[1].replaceAll("\\\\", "");
+                Map<BString, Object> fieldAnnotation = (Map<BString, Object>) annotations.get(annotationKey);
+                for (BString fieldAnnotationKey: fieldAnnotation.keySet()) {
+                    String fieldAnnotationKeyStr = fieldAnnotationKey.getValue();
+                    if (fieldAnnotationKeyStr.startsWith(Constants.MODULE_NAME)) {
+                        BMap<BString, Object> fieldAnnotationValue =
+                                (BMap<BString, Object>) fieldAnnotation.get(fieldAnnotationKey);
+                        if (fieldAnnotationKeyStr.endsWith(Constants.SEQUENCE)) {
+                            XsdSequenceValue seqValue = new XsdSequenceValue(fieldAnnotationValue);
+                            HashMap<String, ArrayList<XsdValue>> xsdFieldAnnotations =
+                                    parserData.xsdFieldAnnotations.peek();
+                            if (xsdFieldAnnotations.containsKey(fieldName)) {
+                                xsdFieldAnnotations.get(fieldName).add(seqValue);
+                            } else {
+                                ArrayList<XsdValue> xsdValues = new ArrayList<>();
+                                xsdValues.add(seqValue);
+                                xsdFieldAnnotations.put(fieldName, xsdValues);
+                            }
+
+                            HashMap<String, XsdSequenceInfo> sequenceInfo = parserData.sequenceInfo.peek();
+                            if (sequenceInfo.containsKey(seqValue.id)) {
+                                XsdSequenceInfo info = sequenceInfo.get(seqValue.id);
+                                info.updateNonVisitedSequenceFields(fieldName);
+                            } else {
+                                sequenceInfo.put(seqValue.id, new XsdSequenceInfo(
+                                        seqValue.minOccurs, seqValue.maxOccurs, fieldName));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private void validateXsdConstraintsForElementField(String fieldName, XmlParserData xmlParserData) {
+        ArrayList<XsdValue> xsdValues = xmlParserData.xsdFieldAnnotations.peek().get(fieldName);
+        if (xsdValues == null) {
+            return;
+        }
+        xsdValues.forEach(xsdValue -> {
+            if (xsdValue instanceof XsdSequenceValue seqValue) {
+                String seqId = seqValue.id;
+                XsdSequenceInfo seqInfo = xmlParserData.sequenceInfo.peek().get(seqId);
+                seqInfo.updateRecentVisitedSequenceOrder(seqValue.sequenceOrder, fieldName);
+                seqInfo.updateSequenceFieldsAfterVisit(fieldName);
+                // TODO: Validate minOccurs
+                // TODO: validate seqInfo.UnvisitedSequenceFields.length() > 0
+            }
+        });
+    }
+
+    private void validateXsdSequenceInfo(HashMap<String, XsdSequenceInfo> xsdSequenceInfo,
+                                         HashMap<String, ArrayList<XsdValue>> xsdFieldAnnotations) {
+        xsdFieldAnnotations.forEach((fieldName, xsdValues) -> {
+            xsdValues.forEach(xsdValue -> {
+                if (xsdValue instanceof XsdSequenceValue seqValue) {
+                    String seqId = seqValue.id;
+                    XsdSequenceInfo seqInfo = xsdSequenceInfo.get(seqId);
+                    if (seqInfo == null) {
+                        return;
+                    }
+                    if (seqInfo.minOccurrences > seqInfo.occurrence) {
+                        throw DiagnosticLog.error(DiagnosticErrorCode.XSD_MIN_OCCURRENCES_NOT_MET, fieldName);
+                    }
+                    if (seqInfo.maxOccurrences > 0 && !seqInfo.isCompletelyVisited) {
+                        throw DiagnosticLog.error(
+                                DiagnosticErrorCode.XSD_INCOMPLETE_SEQUENCE,
+                                String.join(", ", seqInfo.nonVisitedSequenceFields));
+                    }
+                }
+            });
+        });
+    }
+
     /**
      * Represents the content of an XML element.
      *
@@ -1162,11 +1265,10 @@ public class XmlParser {
         private boolean allowDataProjection;
         private boolean useSemanticEquality;
 
-        public final Stack<QualifiedNameMap<Field>> xsdFieldAnnotations = new Stack<>();
+        public final Stack<HashMap<String, ArrayList<XsdValue>>> xsdFieldAnnotations = new Stack<>();
+        public final Stack<HashMap<String, XsdSequenceInfo>> sequenceInfo = new Stack<>();
         public final Stack<QualifiedNameMap<Field>> elementOccurrences = new Stack<>();
-        public final Stack<QualifiedNameMap<Field>> sequenceOccurrences = new Stack<>();
-        public final Stack<QualifiedNameMap<Field>> sequencePositions = new Stack<>();
-        public final Stack<QualifiedNameMap<Field>> choicePositions = new Stack<>();
         public final Stack<QualifiedNameMap<Field>> choiceOccurrences = new Stack<>();
+        public final Stack<QualifiedNameMap<Field>> choicePositions = new Stack<>();
     }
 }

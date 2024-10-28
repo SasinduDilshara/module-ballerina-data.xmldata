@@ -125,7 +125,7 @@ public type SequenceElement record {|
   # The unique identifier for the sequence.
   string id;
   # The order of the element in the sequence.
-  int sequenceOrder;
+  int:Unsigned32 sequenceOrder;
 |};
 
 # Annotation to specify the sequence element configuration for XML schema.

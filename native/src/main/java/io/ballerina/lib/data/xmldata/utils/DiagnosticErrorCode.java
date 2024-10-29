@@ -45,7 +45,9 @@ public enum DiagnosticErrorCode {
     XSD_MAX_OCCURENCES_EXCEEDED("XML_ERROR_018", "xsd.max.occurrences.exceeded"),
     XSD_INVALID_SEQUENCE_ORDER("XML_ERROR_019", "xsd.invalid.sequence.order"),
     XSD_MIN_OCCURRENCES_NOT_MET("XML_ERROR_020", "xsd.min.occurrences.not.met"),
-    XSD_INCOMPLETE_SEQUENCE("XML_ERROR_021", "xsd.incomplete.sequence");
+    XSD_INCOMPLETE_SEQUENCE("XML_ERROR_021", "xsd.incomplete.sequence"),
+    XSD_CHOICE_MAX_OCCURENCES_EXCEEDED("XML_ERROR_021", "xsd.choice.max.occurrences.exceeded"),
+    XSD_CHOICE_MIN_OCCURRENCES_NOT_MET("XML_ERROR_020", "xsd.choice.min.occurrences.not.met");
 
     String diagnosticId;
     String messageKey;

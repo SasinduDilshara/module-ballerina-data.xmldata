@@ -32,7 +32,7 @@ type SimpleXSDSequenceRecord record {
     int age;
 };
 
-@test:Config {groups: ["xsd", "xsdWithStringSource"]}
+@test:Config {groups: ["xsd", "xsd_sequence"]}
 function testXMLStringSourceWithXSDSequences() returns error? {
     string validXmlValue = string `<SimpleXSDSequenceRecord><name>John</name><age>30</age></SimpleXSDSequenceRecord>`;
     SimpleXSDSequenceRecord validatedOutput = check parseString(validXmlValue);
@@ -72,7 +72,7 @@ type SimpleXSDSequenceRecord2 record {
     string taxNumber = "N/A";
 };
 
-@test:Config {groups: ["xsd", "xsdWithStringSource"]}
+@test:Config {groups: ["xsd", "xsd_sequence"]}
 function testXMLStringSourceWithXSDSequences2() returns error? {
     string validXmlValue = 
         string `<SimpleXSDSequenceRecord><name>John</name><age>30</age><nestedRecord><nestedName>John</nestedName><nestedAge>30</nestedAge></nestedRecord></SimpleXSDSequenceRecord>`;
@@ -114,7 +114,7 @@ type SimpleXSDSequenceRecord3 record {
     string taxNumber = "N/A";
 };
 
-@test:Config {groups: ["xsd", "xsdWithStringSource"]}
+@test:Config {groups: ["xsd", "xsd_sequence"]}
 function testXMLStringSourceWithXSDSequences3() returns error? {
     string validXmlValue = 
         string `<SimpleXSDSequenceRecord><name>John</name><age>30</age><nestedRecords><nestedName>John</nestedName><nestedAge>30</nestedAge></nestedRecords><nestedRecords><nestedName>John</nestedName><nestedAge>30</nestedAge></nestedRecords></SimpleXSDSequenceRecord>`;
@@ -147,7 +147,7 @@ type SimpleXSDSequenceRecordWithMaxOccursTest record {
     int[] id;
 };
 
-@test:Config {groups: ["xsd", "xsdWithStringSource"]}
+@test:Config {groups: ["xsd", "xsd_sequence"]}
 function testXMLStringSourceWithXSDSequencesWithMaxOccures() returns error? {
     string validXmlValue = string `<A><id>1</id><name>John</name><id>1</id><name>John</name></A>`;
     SimpleXSDSequenceRecordWithMaxOccursTest validatedOutput = check parseString(validXmlValue);
@@ -202,7 +202,7 @@ type SimpleXSDSequenceRecordWithMaxOccursTes2 record {
 
 // Commented Due to https://github.com/ballerina-platform/ballerina-library/issues/7303
 
-// @test:Config {groups: ["xsd", "xsdWithStringSource"]}
+// @test:Config {groups: ["xsd", "xsd_sequence"]}
 // function testXMLStringSourceWithXSDSequencesWithMaxOccures2() returns error? {
 
 //     // string validXmlValue = string `<A><name>John</name><age>23</age><user><id>1</id><name>John</name><id>1</id><name>John</name></user></A>`;
@@ -239,7 +239,7 @@ type SimpleXSDSequenceRecordWithMinOccursTest record {
     int[] id;
 };
 
-@test:Config {groups: ["xsd", "xsdWithStringSource"]}
+@test:Config {groups: ["xsd", "xsd_sequence"]}
 function testXMLStringSourceWithXSDSequencesWithMinOccures() returns error? {
     string validXmlValue = string `<A><id>1</id><name>John</name><id>1</id><name>John</name></A>`;
     SimpleXSDSequenceRecordWithMinOccursTest validatedOutput = check parseString(validXmlValue);

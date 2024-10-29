@@ -23,6 +23,8 @@ import io.ballerina.lib.data.xmldata.utils.Constants;
 import io.ballerina.lib.data.xmldata.utils.DataUtils;
 import io.ballerina.lib.data.xmldata.utils.DiagnosticErrorCode;
 import io.ballerina.lib.data.xmldata.utils.DiagnosticLog;
+import io.ballerina.lib.data.xmldata.xml.xsd.XsdChoiceInfo;
+import io.ballerina.lib.data.xmldata.xml.xsd.XsdChoiceValue;
 import io.ballerina.lib.data.xmldata.xml.xsd.XsdSequenceInfo;
 import io.ballerina.lib.data.xmldata.xml.xsd.XsdSequenceValue;
 import io.ballerina.lib.data.xmldata.xml.xsd.XsdValue;
@@ -157,6 +159,7 @@ public class XmlParser {
         xmlParserData.restFieldsPoints.clear();
         xmlParserData.arrayIndexes.clear();
         xmlParserData.sequenceInfo.clear();
+        xmlParserData.choiceInfo.clear();
         xmlParserData.xsdFieldAnnotations.clear();
     }
 
@@ -219,7 +222,7 @@ public class XmlParser {
                     QName endElement = xmlStreamReader.getName();
                     if (endElement.getLocalPart().equals(startElementName)) {
                         validateRequiredFields(xmlParserData);
-                        validateXsdSequenceInfo(xmlParserData.sequenceInfo.peek(),
+                        finalizeXsdElements(xmlParserData.sequenceInfo.peek(), xmlParserData.choiceInfo.peek(),
                                 xmlParserData.xsdFieldAnnotations.peek());
                         popExpectedTypeStacks(xmlParserData);
                         break;
@@ -455,7 +458,8 @@ public class XmlParser {
             return;
         }
         validateRequiredFields(xmlParserData);
-        validateXsdSequenceInfo(xmlParserData.sequenceInfo.peek(), xmlParserData.xsdFieldAnnotations.peek());
+        finalizeXsdElements(xmlParserData.sequenceInfo.peek(),
+                xmlParserData.choiceInfo.peek(), xmlParserData.xsdFieldAnnotations.peek());
     }
 
     @SuppressWarnings("unchecked")
@@ -472,7 +476,8 @@ public class XmlParser {
         }
 
         validateRequiredFields(xmlParserData);
-        validateXsdSequenceInfo(xmlParserData.sequenceInfo.peek(), xmlParserData.xsdFieldAnnotations.peek());
+        finalizeXsdElements(xmlParserData.sequenceInfo.peek(),
+                xmlParserData.choiceInfo.peek(), xmlParserData.xsdFieldAnnotations.peek());
         xmlParserData.currentNode = (BMap<BString, Object>) xmlParserData.nodesStack.pop();
         popExpectedTypeStacks(xmlParserData);
         updateSiblingAndRootRecord(xmlParserData);
@@ -621,6 +626,7 @@ public class XmlParser {
         xmlParserData.recordTypeStack.push(null);
         xmlParserData.xsdFieldAnnotations.push(new HashMap<>());
         xmlParserData.sequenceInfo.push(new HashMap<>());
+        xmlParserData.choiceInfo.push(new HashMap<>());
         BMap<BString, Object> currentNode = xmlParserData.currentNode;
         Object temp = currentNode.get(StringUtils.fromString(fieldName));
         if (temp instanceof BArray) {
@@ -691,6 +697,7 @@ public class XmlParser {
         xmlParserData.restTypes.push(recordType.getRestFieldType());
         xmlParserData.xsdFieldAnnotations.push(new HashMap<>());
         xmlParserData.sequenceInfo.push(new HashMap<>());
+        xmlParserData.choiceInfo.push(new HashMap<>());
     }
 
     private void popExpectedTypeStacks(XmlParserData xmlParserData) {
@@ -708,6 +715,7 @@ public class XmlParser {
 
     private void popXsdValidationStacks(XmlParserData xmlParserData) {
         xmlParserData.sequenceInfo.pop();
+        xmlParserData.choiceInfo.pop();
         xmlParserData.xsdFieldAnnotations.pop();
     }
 
@@ -778,6 +786,7 @@ public class XmlParser {
             xmlParserData.arrayIndexes.push(new HashMap<>());
             xmlParserData.xsdFieldAnnotations.push(new HashMap<>());
             xmlParserData.sequenceInfo.push(new HashMap<>());
+            xmlParserData.choiceInfo.push(new HashMap<>());
         }
     }
 
@@ -1184,6 +1193,25 @@ public class XmlParser {
                                         seqValue.minOccurs, seqValue.maxOccurs, fieldName));
                             }
                         }
+
+                        if (fieldAnnotationKeyStr.endsWith(Constants.CHOICE)) {
+                            XsdChoiceValue choiceValue = new XsdChoiceValue(fieldAnnotationValue);
+                            HashMap<String, ArrayList<XsdValue>> xsdFieldAnnotations =
+                                    parserData.xsdFieldAnnotations.peek();
+                            if (xsdFieldAnnotations.containsKey(fieldName)) {
+                                xsdFieldAnnotations.get(fieldName).add(choiceValue);
+                            } else {
+                                ArrayList<XsdValue> xsdValues = new ArrayList<>();
+                                xsdValues.add(choiceValue);
+                                xsdFieldAnnotations.put(fieldName, xsdValues);
+                            }
+
+                            HashMap<String, XsdChoiceInfo> choiceInfo = parserData.choiceInfo.peek();
+                            if (!choiceInfo.containsKey(choiceValue.id)) {
+                                choiceInfo.put(choiceValue.id, new XsdChoiceInfo(
+                                        choiceValue.minOccurs, choiceValue.maxOccurs));
+                            }
+                        }
                     }
                 }
             }
@@ -1201,14 +1229,19 @@ public class XmlParser {
                 XsdSequenceInfo seqInfo = xmlParserData.sequenceInfo.peek().get(seqId);
                 seqInfo.updateRecentVisitedSequenceOrder(seqValue.sequenceOrder, fieldName);
                 seqInfo.updateSequenceFieldsAfterVisit(fieldName);
-                // TODO: Validate minOccurs
-                // TODO: validate seqInfo.UnvisitedSequenceFields.length() > 0
+            }
+
+            if (xsdValue instanceof XsdChoiceValue choiceValue) {
+                String choiceId = choiceValue.id;
+                XsdChoiceInfo choiceInfo = xmlParserData.choiceInfo.peek().get(choiceId);
+                choiceInfo.addElementAfterVisit(fieldName);
             }
         });
     }
 
-    private void validateXsdSequenceInfo(HashMap<String, XsdSequenceInfo> xsdSequenceInfo,
-                                         HashMap<String, ArrayList<XsdValue>> xsdFieldAnnotations) {
+    private void finalizeXsdElements(HashMap<String, XsdSequenceInfo> xsdSequenceInfo,
+                                     HashMap<String, XsdChoiceInfo> xsdChoiceInfo,
+                                     HashMap<String, ArrayList<XsdValue>> xsdFieldAnnotations) {
         xsdFieldAnnotations.forEach((fieldName, xsdValues) -> {
             xsdValues.forEach(xsdValue -> {
                 if (xsdValue instanceof XsdSequenceValue seqValue) {
@@ -1224,6 +1257,17 @@ public class XmlParser {
                         throw DiagnosticLog.error(
                                 DiagnosticErrorCode.XSD_INCOMPLETE_SEQUENCE,
                                 String.join(", ", seqInfo.nonVisitedSequenceFields));
+                    }
+                }
+
+                if (xsdValue instanceof XsdChoiceValue choiceValue) {
+                    String choiceId = choiceValue.id;
+                    XsdChoiceInfo choiceInfo = xsdChoiceInfo.get(choiceId);
+                    if (choiceInfo == null) {
+                        return;
+                    }
+                    if (choiceInfo.minOccurrences > choiceInfo.occurrence) {
+                        throw DiagnosticLog.error(DiagnosticErrorCode.XSD_CHOICE_MIN_OCCURRENCES_NOT_MET, choiceId);
                     }
                 }
             });
@@ -1267,8 +1311,6 @@ public class XmlParser {
 
         public final Stack<HashMap<String, ArrayList<XsdValue>>> xsdFieldAnnotations = new Stack<>();
         public final Stack<HashMap<String, XsdSequenceInfo>> sequenceInfo = new Stack<>();
-        public final Stack<QualifiedNameMap<Field>> elementOccurrences = new Stack<>();
-        public final Stack<QualifiedNameMap<Field>> choiceOccurrences = new Stack<>();
-        public final Stack<QualifiedNameMap<Field>> choicePositions = new Stack<>();
+        public final Stack<HashMap<String, XsdChoiceInfo>> choiceInfo = new Stack<>();
     }
 }

@@ -1251,7 +1251,7 @@ public class XmlParser {
                         return;
                     }
                     if (seqInfo.minOccurrences > seqInfo.occurrence) {
-                        throw DiagnosticLog.error(DiagnosticErrorCode.XSD_MIN_OCCURRENCES_NOT_MET, fieldName);
+                        throw DiagnosticLog.error(DiagnosticErrorCode.XSD_MIN_OCCURRENCES_NOT_MET, seqId);
                     }
                     if (seqInfo.maxOccurrences > 0 && !seqInfo.isCompletelyVisited) {
                         throw DiagnosticLog.error(

@@ -5,45 +5,49 @@ import io.ballerina.lib.data.xmldata.utils.DiagnosticLog;
 
 import java.util.HashSet;
 
-public class XsdSequenceInfo {
+public class XsdSequenceInfo implements ModelGroupInfo {
+    public String id;
+    public HashSet<String> allSequenceFields = new HashSet<>();
     public HashSet<String> visitedSequenceFields = new HashSet<>();
     public HashSet<String> nonVisitedSequenceFields = new HashSet<>();
     public int occurrence = 0;
-    public int maxOccurrences = 1;
-    public int minOccurrences = 1;
+    public int maxOccurrences;
+    public int minOccurrences;
     public int recentVisitedSequenceOrder = -1;
 
     public boolean isCompletelyVisited = false;
 
-    public XsdSequenceInfo(int minOccurrences, int maxOccurrences, String fieldName) {
+    public XsdSequenceInfo(String id, int minOccurrences, int maxOccurrences, String sequenceElement) {
+        this.id = id;
         this.minOccurrences = minOccurrences;
         this.maxOccurrences = maxOccurrences;
-        updateNonVisitedSequenceFields(fieldName);
+        updateNonVisitedSequenceFields(sequenceElement);
     }
 
-    public void updateSequenceFieldsAfterVisit(String fieldName) {
-        visitedSequenceFields.add(fieldName);
-        nonVisitedSequenceFields.remove(fieldName);
-        resetSequenceFieldsIfAllAreVisited(fieldName);
+    public void updateSequenceFieldsAfterVisit(String sequenceElement) {
+        visitedSequenceFields.add(sequenceElement);
+        nonVisitedSequenceFields.remove(sequenceElement);
+        resetSequenceFieldsIfAllAreVisited(sequenceElement);
     }
 
-    public void updateNonVisitedSequenceFields(String fieldName) {
+    public void updateNonVisitedSequenceFields(String sequenceElement) {
         isCompletelyVisited = false;
-        nonVisitedSequenceFields.add(fieldName);
+        allSequenceFields.add(sequenceElement);
+        nonVisitedSequenceFields.add(sequenceElement);
     }
 
-    public void updateRecentVisitedSequenceOrder(int sequenceOrder, String fieldName) {
+    public void updateRecentVisitedSequenceOrder(int sequenceOrder, String sequenceElement) {
         if (sequenceOrder <= this.recentVisitedSequenceOrder) {
-            throw DiagnosticLog.error(DiagnosticErrorCode.XSD_INVALID_SEQUENCE_ORDER, fieldName);
+            throw DiagnosticLog.error(DiagnosticErrorCode.XSD_INVALID_SEQUENCE_ORDER, sequenceElement);
         }
         recentVisitedSequenceOrder = sequenceOrder;
     }
 
-    private void resetSequenceFieldsIfAllAreVisited(String fieldName) {
+    private void resetSequenceFieldsIfAllAreVisited(String sequenceElement) {
         if (nonVisitedSequenceFields.isEmpty()) {
             nonVisitedSequenceFields.addAll(visitedSequenceFields);
             visitedSequenceFields.clear();
-            updateOccurrence(fieldName);
+            updateOccurrence(sequenceElement);
             this.recentVisitedSequenceOrder = -1;
             isCompletelyVisited = true;
             return;
@@ -51,10 +55,35 @@ public class XsdSequenceInfo {
         isCompletelyVisited = false;
     }
 
-    private void updateOccurrence(String fieldName) {
+    private void updateOccurrence(String sequenceElement) {
         if (this.occurrence + 1 > this.maxOccurrences) {
-            throw DiagnosticLog.error(DiagnosticErrorCode.XSD_MAX_OCCURENCES_EXCEEDED, fieldName);
+            throw DiagnosticLog.error(DiagnosticErrorCode.XSD_MAX_OCCURENCES_EXCEEDED, sequenceElement);
         }
         occurrence++;
+    }
+
+    public boolean isMember(String sequenceElement) {
+        return allSequenceFields.contains(sequenceElement);
+    }
+
+    public void validate() {
+        if (this.minOccurrences > this.occurrence) {
+            throw DiagnosticLog.error(DiagnosticErrorCode.XSD_MIN_OCCURRENCES_NOT_MET, id);
+        }
+        if (this.maxOccurrences > 0 && !this.isCompletelyVisited) {
+            throw DiagnosticLog.error(
+                    DiagnosticErrorCode.XSD_INCOMPLETE_SEQUENCE,
+                    String.join(", ", this.nonVisitedSequenceFields));
+        }
+    }
+
+    @Override
+    public void addvisitedModelGroup(String member) {
+        updateSequenceFieldsAfterVisit(member);
+    }
+
+    @Override
+    public String getId() {
+        return this.id;
     }
 }

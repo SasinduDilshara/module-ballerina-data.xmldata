@@ -95,7 +95,7 @@ public type ParticleOccurrence record {|
 public type ElementConfig record {|
   *ParticleOccurrence;
   # Represents the `form` attribute in the XML schema (XSD) `element` definition.
-  "qualified"|"unqulified" form?;
+  "qualified"|"unqualified" form?;
   # Specifies the id of the substitution group for the element.
   string substitutionGroupId?;
   # Indicates whether the element is abstract.
@@ -130,6 +130,17 @@ public type SequenceElement record {|
 
 # Annotation to specify the sequence element configuration for XML schema.
 public const annotation SequenceElement Sequence on type, record field;
+
+# Represents a sequence defined in XML schema.
+public type SequenceMetaInfo record {|
+    string[] sequencesIdsInside = [];
+    string[] choicesIdsInside = [];
+    string[] allsIdsInside = [];
+    string[] elementsIdsInside = [];
+|};
+
+# Annotation to specify the sequence element configuration for XML schema.
+public const annotation SequenceMetaInfo SequenceMetadata on type;
 
 # Represents a choice defined in XML schema.
 public type ChoiceElement record {|

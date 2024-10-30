@@ -4,16 +4,14 @@ import io.ballerina.lib.data.xmldata.utils.Constants;
 import io.ballerina.runtime.api.values.BMap;
 import io.ballerina.runtime.api.values.BString;
 
-public class XsdSequenceValue extends XsdValue {
+public class ModelGroupChoiceValue extends ModelGroupValue {
     public int minOccurs = 1;
     public int maxOccurs = 1;
     public String id;
-    public int sequenceOrder;
 
-    public XsdSequenceValue(BMap<BString, Object> value) {
-        super(XsdValueType.SEQUENCE);
+    public ModelGroupChoiceValue(BMap<BString, Object> value) {
+        super(XsdValueType.CHOICE);
         this.id = ((BString) value.get(Constants.ID)).getValue();
-        this.sequenceOrder = ((Long) value.get(Constants.SEQUENCE_ORDER)).intValue();
         if (value.containsKey(Constants.MIN_OCCURS)) {
             this.minOccurs = ((Long) value.get(Constants.MIN_OCCURS)).intValue();
         }

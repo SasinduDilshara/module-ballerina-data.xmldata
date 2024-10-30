@@ -129,6 +129,198 @@ function testXMLStringSourceWithXSDSequences3() returns error? {
 }
 
 @Name {
+    value: "SimpleXSDSequenceRecord"
+}
+type SimpleXSDSequenceRecord4 record {
+    @Sequence {
+        id: "a1",
+        sequenceOrder: 1
+    }
+    string name;
+    @Sequence {
+        id: "a1",
+        sequenceOrder: 2
+    }
+    int age;
+};
+
+@test:Config {groups: ["xsd", "xsd_sequence"]}
+function testXMLStringSourceWithXSDSequences4() returns error? {
+    string invalidXmlValue2 = string `<SimpleXSDSequenceRecord><name>John</name><a>1</a><age>30</age></SimpleXSDSequenceRecord>`;
+    SimpleXSDSequenceRecord4|Error validatedOutput3 = parseString(invalidXmlValue2);
+    test:assertTrue(validatedOutput3 is error);
+    test:assertEquals((<error>validatedOutput3).message(), "min occurrences does not reach for the element 'a1'");
+
+    invalidXmlValue2 = string `<SimpleXSDSequenceRecord><a>1</a><name>John</name><a>1</a><age>30</age><a>1</a></SimpleXSDSequenceRecord>`;
+    validatedOutput3 = parseString(invalidXmlValue2);
+    test:assertTrue(validatedOutput3 is error);
+    test:assertEquals((<error>validatedOutput3).message(), "min occurrences does not reach for the element 'a1'");
+
+    invalidXmlValue2 = string `<SimpleXSDSequenceRecord><a>1</a><name>John</name><age>30</age><a>1</a></SimpleXSDSequenceRecord>`;
+    validatedOutput3 = parseString(invalidXmlValue2);
+    test:assertEquals(validatedOutput3, {name: "John", age: 30, a: [1, 1]});
+}
+
+@Name {
+    value: "SimpleXSDSequenceRecord"
+}
+type SimpleXSDSequenceRecord5 record {
+    @Sequence {
+        id: "a1",
+        sequenceOrder: 1
+    }
+    string[] name;
+    @Sequence {
+        id: "a1",
+        sequenceOrder: 2
+    }
+    int[] age;
+};
+
+@test:Config {groups: ["xsd", "xsd_sequence"]}
+function testXMLStringSourceWithXSDSequences5() returns error? {
+    string invalidXmlValue2 = string `<SimpleXSDSequenceRecord><name>John</name><age>30</age><a>1</a><age>30</age></SimpleXSDSequenceRecord>`;
+    SimpleXSDSequenceRecord5|Error validatedOutput3 = parseString(invalidXmlValue2);
+    test:assertTrue(validatedOutput3 is error);
+    test:assertEquals((<error>validatedOutput3).message(), "The XML sequence is missing required elements: 'name'");
+
+    invalidXmlValue2 = string `<SimpleXSDSequenceRecord><name>John</name><age>30</age><a>1</a><name>John</name></SimpleXSDSequenceRecord>`;
+    validatedOutput3 = parseString(invalidXmlValue2);
+    test:assertTrue(validatedOutput3 is error);
+    test:assertEquals((<error>validatedOutput3).message(), "The XML sequence is missing required elements: 'age'");
+}
+
+@Name {
+    value: "SimpleXSDSequenceRecord"
+}
+type SimpleXSDSequenceRecord6 record {
+    @Sequence {
+        id: "a1",
+        sequenceOrder: 1
+    }
+    string name2;
+    @Sequence {
+        id: "a1",
+        sequenceOrder: 2
+    }
+    int age2;
+    record { 
+        @Sequence {
+            id: "a2",
+            sequenceOrder: 1
+        }
+        string name;
+        @Sequence {
+            id: "a2",
+            sequenceOrder: 2
+        }
+        int age;
+    } user;
+};
+
+@test:Config {groups: ["xsd", "xsd_sequence"]}
+function testXMLStringSourceWithXSDSequences6() returns error? {
+    string invalidXmlValue2 = string `<SimpleXSDSequenceRecord><name2>John</name2><age2>30</age2><user><name>John</name><a>1</a><age>30</age><\user></SimpleXSDSequenceRecord>`;
+    SimpleXSDSequenceRecord6|Error validatedOutput3 = parseString(invalidXmlValue2);
+    test:assertTrue(validatedOutput3 is error);
+    test:assertEquals((<error>validatedOutput3).message(), "min occurrences does not reach for the element 'a2'");
+
+    invalidXmlValue2 = string `<SimpleXSDSequenceRecord><a>1</a><name2>John</name2><age2>30</age2><user><a>1</a><name>John</name><a>1</a><age>30</age><a>1</a><\user></SimpleXSDSequenceRecord>`;
+    validatedOutput3 = parseString(invalidXmlValue2);
+    test:assertTrue(validatedOutput3 is error);
+    test:assertEquals((<error>validatedOutput3).message(), "min occurrences does not reach for the element 'a2'");
+
+    invalidXmlValue2 = string `<SimpleXSDSequenceRecord><a>1</a><name2>John</name2><age2>30</age2><a>1</a><user><a>1</a><name>John</name><age>30</age><a>1</a></user></SimpleXSDSequenceRecord>`;
+    validatedOutput3 = parseString(invalidXmlValue2);
+    test:assertEquals(validatedOutput3, {name2: "John", age2: 30, a: [1, 1], user: {name: "John", age: 30, a: [1, 1]}});
+}
+
+@Name {
+    value: "SimpleXSDSequenceRecord"
+}
+type SimpleXSDSequenceRecord7 record {
+    @Sequence {
+        id: "a1",
+        sequenceOrder: 1
+    }
+    string[] name;
+    @Sequence {
+        id: "a1",
+        sequenceOrder: 2
+    }
+    int[] age;
+
+    record {
+        @Sequence {
+            id: "a1",
+            sequenceOrder: 1
+        }
+        string[] name;
+        @Sequence {
+            id: "a1",
+            sequenceOrder: 2
+        }
+        int[] age;
+    } user;
+};
+
+@test:Config {groups: ["xsd", "xsd_sequence"]}
+function testXMLStringSourceWithXSDSequences7() returns error? {
+    string invalidXmlValue2 = string `<SimpleXSDSequenceRecord><name2>John</name2><age2>30</age2><user><name>John</name><age>30</age><a>1</a><age>30</age></user></SimpleXSDSequenceRecord>`;
+    SimpleXSDSequenceRecord7|Error validatedOutput3 = parseString(invalidXmlValue2);
+    test:assertTrue(validatedOutput3 is error);
+    test:assertEquals((<error>validatedOutput3).message(), "The XML sequence is missing required elements: 'name'");
+
+    invalidXmlValue2 = string `<SimpleXSDSequenceRecord><name2>John</name2><age2>30</age2><user><name>John</name><age>30</age><a>1</a><name>John</name></user></SimpleXSDSequenceRecord>`;
+    validatedOutput3 = parseString(invalidXmlValue2);
+    test:assertTrue(validatedOutput3 is error);
+    test:assertEquals((<error>validatedOutput3).message(), "The XML sequence is missing required elements: 'age'");
+}
+
+@Name {
+    value: "SimpleXSDSequenceRecord"
+}
+type SimpleXSDSequenceRecord8 record {
+    @Sequence {
+        id: "a1",
+        sequenceOrder: 1,
+        maxOccurs: 3
+    }
+    string[] name;
+    @Sequence {
+        id: "a1",
+        sequenceOrder: 2,
+        maxOccurs: 3
+    }
+    int[] age;
+
+    @Sequence {
+        id: "a2",
+        sequenceOrder: 1,
+        maxOccurs: 3
+    }
+    string[] name2;
+    @Sequence {
+        id: "a2",
+        sequenceOrder: 2,
+        maxOccurs: 3
+    }
+    int[] age2;
+};
+
+@test:Config {groups: ["xsd", "xsd_sequence"]}
+function testXMLStringSourceWithXSDSequences8() returns error? {
+    string invalidXmlValue2 = string `<SimpleXSDSequenceRecord><name>John</name><age>30</age><name>John</name><age>30</age><name2>John</name2><age2>30</age2><name2>John</name2><age2>30</age2></SimpleXSDSequenceRecord>`;
+    SimpleXSDSequenceRecord8|Error validatedOutput3 = parseString(invalidXmlValue2);
+    test:assertEquals(validatedOutput3, {name: ["John", "John"], age: [30, 30], name2: ["John", "John"], age2: [30, 30]});
+
+    string invalidXmlValue3 = string `<SimpleXSDSequenceRecord><name>John</name><age>30</age><name>John</name><name2>John</name2><age2>30</age2><name2>John</name2><age2>30</age2><age>30</age></SimpleXSDSequenceRecord>`;
+    SimpleXSDSequenceRecord8|Error validatedOutput4 = parseString(invalidXmlValue3);
+    test:assertTrue(validatedOutput4 is error);
+    test:assertEquals((<error>validatedOutput4).message(), "The XML sequence is missing required elements: 'age'");
+}
+
+@Name {
     value: "A"
 }
 type SimpleXSDSequenceRecordWithMaxOccursTest record {

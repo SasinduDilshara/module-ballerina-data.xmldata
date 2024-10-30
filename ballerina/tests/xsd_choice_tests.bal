@@ -325,3 +325,83 @@ function testXsdChoice5() returns error? {
 //     test:assertTrue(user is Error);
 //     test:assertEquals((<Error>user).message(), "min occurrences does not reach for the choice element 'a4'");
 // }
+
+type User7 record {
+    @Choice {
+        id: "a1",
+        maxOccurs: 2
+    }
+    string id?;
+    @Choice {
+        id: "a2",
+        maxOccurs: 2
+    }
+    int age?;
+    @Choice {
+        id: "a2",
+        maxOccurs: 2
+    }
+    boolean loggedIn?;
+    record {|
+        @Choice {
+            id: "a3",
+            maxOccurs: 2
+        }
+        string id2?;
+        @Choice {
+            id: "a3",
+            maxOccurs: 2
+        }
+        string name2?;
+        @Choice {
+            id: "a4",
+            maxOccurs: 2
+        }
+        int age2?;
+        @Choice {
+            id: "a4",
+            maxOccurs: 2
+        }
+        string gender2?;
+        @Choice {
+            id: "a3",
+            maxOccurs: 2
+        }
+        string keyValue2?;
+        @Choice {
+            id: "a4",
+            maxOccurs: 2
+        }
+        boolean loggedIn2?;
+    |} nestedXml;
+    @Choice {
+        id: "a1",
+        maxOccurs: 2
+    }
+    string name?;
+    @Choice {
+        id: "a1",
+        maxOccurs: 2
+    }
+    string keyValue?;
+    @Choice {
+        id: "a2",
+        maxOccurs: 2
+    }
+    string gender?;
+};
+
+@test:Config {groups: ["xsd", "xsd_choice"]}
+function testXsdChoice7() returns error? {
+    string xmlValue = string `<User><name>John Doe</name><id>1</id><nestedXml><id2>1</id2><age2>23</age2><name2>Doe</name2></nestedXml><age>23</age></User>`;
+    User7|Error user = parseString(xmlValue);
+    test:assertEquals(user, {name: "John Doe", id: "1", age: 23, nestedXml: {id2: "1", age2: 23, name2: "Doe"}});
+
+    xmlValue = string `<User><name>John Doe</name><nestedXml><id2>1</id2><age2>23</age2><name2>Doe</name2></nestedXml><id>1</id><age>23</age></User>`;
+    user = parseString(xmlValue);
+    test:assertEquals(user, {name: "John Doe", id: "1", age: 23, nestedXml: {id2: "1", age2: 23, name2: "Doe"}});
+
+    xmlValue = string `<User><id>1</id><age>23</age><nestedXml><id2>1</id2><age2>23</age2><name2>Doe</name2></nestedXml></User>`;
+    user = parseString(xmlValue);
+    test:assertEquals(user, {id: "1", age: 23, nestedXml: {id2: "1", age2: 23, name2: "Doe"}});
+}

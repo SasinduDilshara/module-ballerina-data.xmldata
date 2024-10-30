@@ -23,10 +23,11 @@ import io.ballerina.lib.data.xmldata.utils.Constants;
 import io.ballerina.lib.data.xmldata.utils.DataUtils;
 import io.ballerina.lib.data.xmldata.utils.DiagnosticErrorCode;
 import io.ballerina.lib.data.xmldata.utils.DiagnosticLog;
+import io.ballerina.lib.data.xmldata.xml.xsd.ModelGroupChoiceValue;
+import io.ballerina.lib.data.xmldata.xml.xsd.ModelGroupInfo;
+import io.ballerina.lib.data.xmldata.xml.xsd.ModelGroupSequenceValue;
 import io.ballerina.lib.data.xmldata.xml.xsd.XsdChoiceInfo;
-import io.ballerina.lib.data.xmldata.xml.xsd.XsdChoiceValue;
 import io.ballerina.lib.data.xmldata.xml.xsd.XsdSequenceInfo;
-import io.ballerina.lib.data.xmldata.xml.xsd.XsdSequenceValue;
 import io.ballerina.lib.data.xmldata.xml.xsd.XsdValue;
 import io.ballerina.runtime.api.PredefinedTypes;
 import io.ballerina.runtime.api.TypeTags;
@@ -61,6 +62,9 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 
 import static io.ballerina.lib.data.xmldata.utils.Constants.ENABLE_CONSTRAINT_VALIDATION;
+import static io.ballerina.lib.data.xmldata.xml.QualifiedName.AttributeState.ATTRIBUTE;
+import static io.ballerina.lib.data.xmldata.xml.QualifiedName.AttributeState.ELEMENT;
+import static io.ballerina.lib.data.xmldata.xml.QualifiedName.AttributeState.NOT_DEFINED;
 import static javax.xml.stream.XMLStreamConstants.CDATA;
 import static javax.xml.stream.XMLStreamConstants.CHARACTERS;
 import static javax.xml.stream.XMLStreamConstants.COMMENT;
@@ -69,9 +73,6 @@ import static javax.xml.stream.XMLStreamConstants.END_DOCUMENT;
 import static javax.xml.stream.XMLStreamConstants.END_ELEMENT;
 import static javax.xml.stream.XMLStreamConstants.PROCESSING_INSTRUCTION;
 import static javax.xml.stream.XMLStreamConstants.START_ELEMENT;
-import static io.ballerina.lib.data.xmldata.xml.QualifiedName.AttributeState.ATTRIBUTE;
-import static io.ballerina.lib.data.xmldata.xml.QualifiedName.AttributeState.ELEMENT;
-import static io.ballerina.lib.data.xmldata.xml.QualifiedName.AttributeState.NOT_DEFINED;
 
 /**
  * Convert Xml string to a ballerina record.
@@ -522,6 +523,7 @@ public class XmlParser {
                 throw DiagnosticLog.error(DiagnosticErrorCode.UNDEFINED_FIELD, elemName,
                         xmlParserData.rootRecord);
             }
+            resetModelGroupStack(xmlParserData);
             return;
         }
 
@@ -1173,15 +1175,15 @@ public class XmlParser {
                         BMap<BString, Object> fieldAnnotationValue =
                                 (BMap<BString, Object>) fieldAnnotation.get(fieldAnnotationKey);
                         if (fieldAnnotationKeyStr.endsWith(Constants.SEQUENCE)) {
-                            XsdSequenceValue seqValue = new XsdSequenceValue(fieldAnnotationValue);
+                            ModelGroupSequenceValue seqValue = new ModelGroupSequenceValue(fieldAnnotationValue);
                             HashMap<String, ArrayList<XsdValue>> xsdFieldAnnotations =
                                     parserData.xsdFieldAnnotations.peek();
                             if (xsdFieldAnnotations.containsKey(fieldName)) {
                                 xsdFieldAnnotations.get(fieldName).add(seqValue);
                             } else {
-                                ArrayList<XsdValue> xsdValues = new ArrayList<>();
-                                xsdValues.add(seqValue);
-                                xsdFieldAnnotations.put(fieldName, xsdValues);
+                                ArrayList<XsdValue> modelGroupValues = new ArrayList<>();
+                                modelGroupValues.add(seqValue);
+                                xsdFieldAnnotations.put(fieldName, modelGroupValues);
                             }
 
                             HashMap<String, XsdSequenceInfo> sequenceInfo = parserData.sequenceInfo.peek();
@@ -1189,26 +1191,26 @@ public class XmlParser {
                                 XsdSequenceInfo info = sequenceInfo.get(seqValue.id);
                                 info.updateNonVisitedSequenceFields(fieldName);
                             } else {
-                                sequenceInfo.put(seqValue.id, new XsdSequenceInfo(
+                                sequenceInfo.put(seqValue.id, new XsdSequenceInfo(seqValue.id,
                                         seqValue.minOccurs, seqValue.maxOccurs, fieldName));
                             }
                         }
 
                         if (fieldAnnotationKeyStr.endsWith(Constants.CHOICE)) {
-                            XsdChoiceValue choiceValue = new XsdChoiceValue(fieldAnnotationValue);
+                            ModelGroupChoiceValue choiceValue = new ModelGroupChoiceValue(fieldAnnotationValue);
                             HashMap<String, ArrayList<XsdValue>> xsdFieldAnnotations =
                                     parserData.xsdFieldAnnotations.peek();
                             if (xsdFieldAnnotations.containsKey(fieldName)) {
                                 xsdFieldAnnotations.get(fieldName).add(choiceValue);
                             } else {
-                                ArrayList<XsdValue> xsdValues = new ArrayList<>();
-                                xsdValues.add(choiceValue);
-                                xsdFieldAnnotations.put(fieldName, xsdValues);
+                                ArrayList<XsdValue> modelGroupValues = new ArrayList<>();
+                                modelGroupValues.add(choiceValue);
+                                xsdFieldAnnotations.put(fieldName, modelGroupValues);
                             }
 
                             HashMap<String, XsdChoiceInfo> choiceInfo = parserData.choiceInfo.peek();
                             if (!choiceInfo.containsKey(choiceValue.id)) {
-                                choiceInfo.put(choiceValue.id, new XsdChoiceInfo(
+                                choiceInfo.put(choiceValue.id, new XsdChoiceInfo(choiceValue.id,
                                         choiceValue.minOccurs, choiceValue.maxOccurs));
                             }
                         }
@@ -1219,58 +1221,73 @@ public class XmlParser {
     }
 
     private void validateXsdConstraintsForElementField(String fieldName, XmlParserData xmlParserData) {
-        ArrayList<XsdValue> xsdValues = xmlParserData.xsdFieldAnnotations.peek().get(fieldName);
-        if (xsdValues == null) {
+        ArrayList<XsdValue> modelGroupValues = xmlParserData.xsdFieldAnnotations.peek().get(fieldName);
+        if (modelGroupValues == null) {
             return;
         }
-        xsdValues.forEach(xsdValue -> {
-            if (xsdValue instanceof XsdSequenceValue seqValue) {
+        if (modelGroupValues.size() == 0) {
+            // If there is a XML element that is not bind with a model group, that means all the model groups are
+            // completed.
+            resetModelGroupStack(xmlParserData);
+            return;
+        }
+        modelGroupValues.forEach(modelGroupValue -> {
+            if (modelGroupValue instanceof ModelGroupSequenceValue seqValue) {
                 String seqId = seqValue.id;
                 XsdSequenceInfo seqInfo = xmlParserData.sequenceInfo.peek().get(seqId);
-                seqInfo.updateRecentVisitedSequenceOrder(seqValue.sequenceOrder, fieldName);
-                seqInfo.updateSequenceFieldsAfterVisit(fieldName);
+                validateCurrentModelGroupAndPushNewModelGroup(seqInfo, xmlParserData,
+                        fieldName, seqValue.sequenceOrder, 0);
             }
 
-            if (xsdValue instanceof XsdChoiceValue choiceValue) {
+            if (modelGroupValue instanceof ModelGroupChoiceValue choiceValue) {
                 String choiceId = choiceValue.id;
                 XsdChoiceInfo choiceInfo = xmlParserData.choiceInfo.peek().get(choiceId);
-                choiceInfo.addElementAfterVisit(fieldName);
+                validateCurrentModelGroupAndPushNewModelGroup(choiceInfo, xmlParserData,
+                        fieldName, -1, -1);
             }
         });
+    }
+
+    private void resetModelGroupStack(XmlParserData xmlParserData) {
+        xmlParserData.modelGroupStack.forEach(modelGroup -> {
+            modelGroup.validate();
+        });
+        xmlParserData.modelGroupStack.clear();
+    }
+
+    private void validateCurrentModelGroupAndPushNewModelGroup(ModelGroupInfo modelGroup,
+                           XmlParserData xmlParserData, String fieldName, int fieldNameOrder, int modelGroupOrder) {
+        Stack<ModelGroupInfo> modelGroupStack = xmlParserData.modelGroupStack;
+        if (modelGroupStack.size() > 0) {
+            ModelGroupInfo currentModelGroup = modelGroupStack.peek();
+            if (!currentModelGroup.getId().equals(modelGroup.getId())) {
+                if (currentModelGroup.isMember(modelGroup.getId())) {
+                    currentModelGroup.updateRecentVisitedSequenceOrder(modelGroupOrder, modelGroup.getId());
+                    currentModelGroup.addvisitedModelGroup(modelGroup.getId());
+                } else {
+                    currentModelGroup.validate();
+                    modelGroupStack.pop();
+                    validateCurrentModelGroupAndPushNewModelGroup(modelGroup, xmlParserData,
+                            fieldName, fieldNameOrder, modelGroupOrder);
+                    return;
+                }
+                modelGroupStack.push(modelGroup);
+            }
+        } else {
+            modelGroupStack.push(modelGroup);
+        }
+        modelGroup.updateRecentVisitedSequenceOrder(fieldNameOrder, fieldName);
+        modelGroup.addvisitedModelGroup(fieldName);
     }
 
     private void finalizeXsdElements(HashMap<String, XsdSequenceInfo> xsdSequenceInfo,
                                      HashMap<String, XsdChoiceInfo> xsdChoiceInfo,
                                      HashMap<String, ArrayList<XsdValue>> xsdFieldAnnotations) {
-        xsdFieldAnnotations.forEach((fieldName, xsdValues) -> {
-            xsdValues.forEach(xsdValue -> {
-                if (xsdValue instanceof XsdSequenceValue seqValue) {
-                    String seqId = seqValue.id;
-                    XsdSequenceInfo seqInfo = xsdSequenceInfo.get(seqId);
-                    if (seqInfo == null) {
-                        return;
-                    }
-                    if (seqInfo.minOccurrences > seqInfo.occurrence) {
-                        throw DiagnosticLog.error(DiagnosticErrorCode.XSD_MIN_OCCURRENCES_NOT_MET, seqId);
-                    }
-                    if (seqInfo.maxOccurrences > 0 && !seqInfo.isCompletelyVisited) {
-                        throw DiagnosticLog.error(
-                                DiagnosticErrorCode.XSD_INCOMPLETE_SEQUENCE,
-                                String.join(", ", seqInfo.nonVisitedSequenceFields));
-                    }
-                }
-
-                if (xsdValue instanceof XsdChoiceValue choiceValue) {
-                    String choiceId = choiceValue.id;
-                    XsdChoiceInfo choiceInfo = xsdChoiceInfo.get(choiceId);
-                    if (choiceInfo == null) {
-                        return;
-                    }
-                    if (choiceInfo.minOccurrences > choiceInfo.occurrence) {
-                        throw DiagnosticLog.error(DiagnosticErrorCode.XSD_CHOICE_MIN_OCCURRENCES_NOT_MET, choiceId);
-                    }
-                }
-            });
+        xsdSequenceInfo.forEach((seqId, seqInfo) -> {
+            seqInfo.validate();
+        });
+        xsdChoiceInfo.forEach((choiceId, choiceInfo) -> {
+            choiceInfo.validate();
         });
     }
 
@@ -1312,5 +1329,6 @@ public class XmlParser {
         public final Stack<HashMap<String, ArrayList<XsdValue>>> xsdFieldAnnotations = new Stack<>();
         public final Stack<HashMap<String, XsdSequenceInfo>> sequenceInfo = new Stack<>();
         public final Stack<HashMap<String, XsdChoiceInfo>> choiceInfo = new Stack<>();
+        public final Stack<ModelGroupInfo> modelGroupStack = new Stack<>();
     }
 }

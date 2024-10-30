@@ -131,16 +131,44 @@ public type SequenceElement record {|
 # Annotation to specify the sequence element configuration for XML schema.
 public const annotation SequenceElement Sequence on type, record field;
 
-# Represents a sequence defined in XML schema.
 public type SequenceMetaInfo record {|
-    string[] sequencesIdsInside = [];
-    string[] choicesIdsInside = [];
-    string[] allsIdsInside = [];
-    string[] elementsIdsInside = [];
+    record {
+        string id;
+        int minOccurs?;
+        int maxOccurs?;
+        record{|int sequenceId; int sequenceOrder;|}[] sequencesIdsInside = [];
+        string[] choicesIdsInside = [];
+        string[] allsIdsInside = [];
+    }[] sequences;
 |};
 
-# Annotation to specify the sequence element configuration for XML schema.
 public const annotation SequenceMetaInfo SequenceMetadata on type;
+
+public type ChoiceMetaInfo record {|
+    record {
+        string id;
+        int minOccurs?;
+        int maxOccurs?;
+        record{|int sequenceId; int sequenceOrder;|}[] sequencesIdsInside = [];
+        string[] choicesIdsInside = [];
+        string[] allsIdsInside = [];
+    }[] choices;
+|};
+
+public const annotation ChoiceMetaInfo ChoiceMetadata on type;
+
+public type AllMetaInfo record {|
+    record {
+        string id;
+        int minOccurs?;
+        int maxOccurs?;
+        record{|int sequenceId; int sequenceOrder;|}[] sequencesIdsInside = [];
+        string[] choicesIdsInside = [];
+        string[] allsIdsInside = [];
+    }[] allTags;
+|};
+
+public const annotation AllMetaInfo AllMetadata on type;
 
 # Represents a choice defined in XML schema.
 public type ChoiceElement record {|

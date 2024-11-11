@@ -635,7 +635,9 @@ public class XmlParser {
         popMappingTypeStacks(xmlParserData);
         xmlParserData.attributeHierarchy.pop();
         xmlParserData.arrayIndexes.pop();
-        xmlParserData.xsdModelGroupInfo.pop();
+        xmlParserData.xsdModelGroupInfo.pop().forEach((key, value) -> {
+            value.validateMinOccurrences();
+        });;
         xmlParserData.xmlElementInfo.pop();
     }
 
@@ -860,7 +862,9 @@ public class XmlParser {
     }
 
     private void popXsdValidationStacks(XmlParserData xmlParserData) {
-        xmlParserData.xsdModelGroupInfo.pop();
+        xmlParserData.xsdModelGroupInfo.pop().forEach((key, value) -> {
+            value.validateMinOccurrences();
+        });;
         xmlParserData.xmlElementInfo.pop();
     }
 

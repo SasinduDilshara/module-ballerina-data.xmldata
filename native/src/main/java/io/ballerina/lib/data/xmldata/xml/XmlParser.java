@@ -232,8 +232,8 @@ public class XmlParser {
                 if (next == END_ELEMENT) {
                     QName endElement = xmlStreamReader.getName();
                     if (endElement.getLocalPart().equals(startElementName)) {
-                        validateRequiredFields(xmlParserData);
                         validateCurrentElementInfo(xmlParserData);
+                        validateRequiredFields(xmlParserData);
                         popExpectedTypeStacks(xmlParserData);
                         break;
                     }
@@ -465,8 +465,8 @@ public class XmlParser {
         if (xmlParserData.fieldHierarchy.empty()) {
             return;
         }
-        validateRequiredFields(xmlParserData);
         validateCurrentElementInfo(xmlParserData);
+        validateRequiredFields(xmlParserData);
     }
 
     @SuppressWarnings("unchecked")
@@ -484,8 +484,8 @@ public class XmlParser {
             return;
         }
 
-        validateRequiredFields(xmlParserData);
         validateCurrentElementInfo(xmlParserData);
+        validateRequiredFields(xmlParserData);
         validateModelGroupStack(xmlParserData, elemQName, false);
         xmlParserData.currentNode = (BMap<BString, Object>) xmlParserData.nodesStack.pop();
         popExpectedTypeStacks(xmlParserData);

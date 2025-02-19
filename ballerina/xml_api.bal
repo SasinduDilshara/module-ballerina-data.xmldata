@@ -33,6 +33,8 @@ public type ParticleOccurrence record {|
 # Defines the configuration for an XML element in the XML schema (XSD).
 public type ElementConfig record {|
     *ParticleOccurrence;
+    # Represent the form attribute in the XML schema (XSD) for xml element.
+    "qualified"|"unqualified" form?;
 |};
 
 # Annotation to define schema rules for an XML element in Ballerina.
@@ -65,7 +67,7 @@ public const annotation SequenceOrderConfig SequenceOrder on record field;
 
 # Defines the name of the XML element.
 public type NameConfig record {|
-    # The name of the XML element
+    # The name of the XML element``
     string value;
 |};
 

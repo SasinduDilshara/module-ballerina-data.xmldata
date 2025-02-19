@@ -145,8 +145,32 @@ public static void popXsdValidationStacks(XmlAnalyzerMetaData xmlAnalyzerMetaDat
     public static void updateElementOccurrence(XmlAnalyzerMetaData xmlAnalyzerMetaData, QualifiedName elemQName) {
         if (!xmlAnalyzerMetaData.xmlElementInfo.isEmpty()) {
             HashMap<String, ElementInfo> elementInfo = xmlAnalyzerMetaData.xmlElementInfo.peek();
-            if (elementInfo.containsKey(elemQName.getLocalPart())) {
-                elementInfo.get(elemQName.getLocalPart()).updateOccurrences();
+            ElementInfo element = elementInfo.get(elemQName.getLocalPart());
+            if (element != null) {
+                validateElementFormAttribute(element, elemQName);
+                element.updateOccurrences();
+            }
+        }
+    }
+
+    private static void validateElementFormAttribute(ElementInfo element, QualifiedName elemQName) {
+        Object form = element.form;
+        if (form == null) {
+            return;
+        }
+
+        if (form instanceof BString formValue) {
+            boolean isNamespacePresent = elemQName.getNamespaceURI() != null && !elemQName.getNamespaceURI().isBlank();
+            if (formValue.equals(Constants.QUALIFIED)) {
+                if (!isNamespacePresent) {
+                    throw DiagnosticLog.error(DiagnosticErrorCode
+                            .NAMESPACE_NOT_PRESENT_FOR_QUALIFIED_ELEMENT, elemQName.getLocalPart());
+                }
+            } else if (formValue.equals(Constants.UNQUALIFIED)) {
+                if (isNamespacePresent) {
+                    throw DiagnosticLog.error(DiagnosticErrorCode
+                            .NAMESPACE_PRESENT_FOR_UNQUALIFIED_ELEMENT, elemQName.getLocalPart());
+                }
             }
         }
     }

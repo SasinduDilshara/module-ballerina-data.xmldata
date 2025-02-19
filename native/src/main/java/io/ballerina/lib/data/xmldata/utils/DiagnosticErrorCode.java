@@ -57,7 +57,9 @@ public enum DiagnosticErrorCode {
     INVALID_XML("XML_ERROR_0029", "invalid.xml"),
     ATTRIBUTE_CANNOT_CONVERT_INTO_ARRAY_TYPE("XML_ERROR_0031",
             "attributes.cannot.convert.to.array.type"),
-    CANNOT_CONVERT_ATTRIBUTE_TO_ARRAY_TYPE("XML_ERROR_0032", "cannot.convert.attributes.to.array.type");
+    CANNOT_CONVERT_ATTRIBUTE_TO_ARRAY_TYPE("XML_ERROR_0032", "cannot.convert.attributes.to.array.type"),
+    NAMESPACE_PRESENT_FOR_UNQUALIFIED_ELEMENT("XML_ERROR_0033", "namespace.present.for.unqualified.element"),
+    NAMESPACE_NOT_PRESENT_FOR_QUALIFIED_ELEMENT("XML_ERROR_0034", "namespace.not.present.for.qualified.element");
 
     String diagnosticId;
     String messageKey;

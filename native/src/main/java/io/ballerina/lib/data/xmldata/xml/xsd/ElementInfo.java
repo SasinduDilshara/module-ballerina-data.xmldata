@@ -36,6 +36,7 @@ public class ElementInfo {
     public long minOccurs;
     public long maxOccurs;
     public int occurrences;
+    public Object form = null;
 
     public boolean isInsideChoice = false;
 
@@ -54,6 +55,10 @@ public class ElementInfo {
             this.maxOccurs = Math.max(this.minOccurs, 1);
         }
         this.occurrences = 0;
+
+        if (element.containsKey(Constants.FORM)) {
+            this.form = element.getStringValue(Constants.FORM);
+        }
     }
 
     public void updateOccurrences() {

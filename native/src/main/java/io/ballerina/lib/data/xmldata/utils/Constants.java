@@ -77,5 +77,8 @@ public class Constants {
     public static final String CHOICE = "Choice";
     public static final BString MIN_OCCURS = StringUtils.fromString("minOccurs");
     public static final BString MAX_OCCURS = StringUtils.fromString("maxOccurs");
+    public static final BString FORM = StringUtils.fromString("form");
     public static final String ORDER = "SequenceOrder";
+    public static final BString QUALIFIED = StringUtils.fromString("qualified");
+    public static final BString UNQUALIFIED = StringUtils.fromString("unqualified");
 }
